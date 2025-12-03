@@ -1,0 +1,55 @@
+@startuml
+title Sequence диаграмма регистрации пользователя
+
+actor "Пользователь" as User
+participant "Фронтенд" as Frontend
+participant "Бэкенд API" as Backend
+participant "База данных" as DB
+participant "Кэш" as Cache
+participant "Email сервис" as Email
+
+User -> Frontend: Заполняет форму\nи нажимает "Register"
+Frontend -> Backend: POST /register\n{email, password, ...}
+
+== ВАЛИДАЦИЯ ==
+
+Backend -> Backend: 1. Проверка JSON и полей
+Backend -> Backend: 2. Валидация форматов\n(email, пароль, имя)
+
+Backend -> Cache: 3. Проверка rate limit
+Cache --> Backend: OK (не превышен)
+
+Backend -> DB: 4. Поиск существующего email
+DB --> Backend: Не найден
+
+== СОЗДАНИЕ ==
+
+Backend -> Backend: 5. Хэширование пароля
+Backend -> Backend: 6. Генерация токенов\n(JWT, refresh, verification)
+
+Backend -> DB: 7. Начало транзакции
+Backend -> DB: 8. Вставка пользователя
+Backend -> DB: 9. Сохранение токенов
+Backend -> DB: 10. Завершение транзакции
+DB --> Backend: Успешно
+
+== ПОСТОБРАБОТКА ==
+
+Backend -> Email: 11. Отправка письма верификации\n(асинхронно)
+Email --> Backend: Принято в очередь
+
+Backend --> Frontend: 12. 200 OK\n{userId, tokens, ...}
+Frontend --> User: 13. Показ успешной регистрации\n"Проверьте вашу почту"
+
+== АСИНХРОННЫЕ ЗАДАЧИ ==
+
+Email --> User: 14. Отправка email\nс ссылкой верификации
+
+User -> Frontend: 15. Клик по ссылке\nиз email
+Frontend -> Backend: 16. Подтверждение email
+Backend -> DB: 17. Обновление статуса
+DB --> Backend: Обновлено
+Backend --> Frontend: 18. Email подтвержден
+Frontend --> User: 19. "Email подтвержден!"
+
+@enduml
